@@ -1,0 +1,20 @@
+name: shipment-svc CI
+on:
+  push: { paths: [ 'services/shipment-svc/**' ] }
+  pull_request: { paths: [ 'services/shipment-svc/**' ] }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.22' }
+      - run: go build ./...
+        working-directory: services/shipment-svc
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: services/shipment-svc
+          push: false
+          tags: shipment-svc:ci
+

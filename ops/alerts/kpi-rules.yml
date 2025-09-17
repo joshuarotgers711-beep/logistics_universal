@@ -1,0 +1,67 @@
+groups:
+  - name: business-kpi-drop
+    interval: 30s
+    rules:
+      # Shipments created drop to zero
+      - alert: ShipmentsCreatedDropWarning
+        expr: sum by (exported_job, tenant_id) (increase(shipments_created_total[15m])) == 0
+        for: 0m
+        labels:
+          severity: warning
+          kpi: shipments_created_total
+        annotations:
+          summary: "Shipments created dropped to zero for 15m"
+          description: "No shipments created in the last 15 minutes for {{ $labels.exported_job }} (tenant={{ $labels.tenant_id }})"
+
+      - alert: ShipmentsCreatedDropCritical
+        expr: sum by (exported_job, tenant_id) (increase(shipments_created_total[30m])) == 0
+        for: 0m
+        labels:
+          severity: critical
+          kpi: shipments_created_total
+        annotations:
+          summary: "Shipments created dropped to zero for 30m"
+          description: "No shipments created in the last 30 minutes for {{ $labels.exported_job }} (tenant={{ $labels.tenant_id }})"
+
+      # Labels generated drop to zero
+      - alert: LabelsGeneratedDropWarning
+        expr: sum by (exported_job, tenant_id) (increase(labels_generated_total[15m])) == 0
+        for: 0m
+        labels:
+          severity: warning
+          kpi: labels_generated_total
+        annotations:
+          summary: "Labels generated dropped to zero for 15m"
+          description: "No labels generated in the last 15 minutes for {{ $labels.exported_job }} (tenant={{ $labels.tenant_id }})"
+
+      - alert: LabelsGeneratedDropCritical
+        expr: sum by (exported_job, tenant_id) (increase(labels_generated_total[30m])) == 0
+        for: 0m
+        labels:
+          severity: critical
+          kpi: labels_generated_total
+        annotations:
+          summary: "Labels generated dropped to zero for 30m"
+          description: "No labels generated in the last 30 minutes for {{ $labels.exported_job }} (tenant={{ $labels.tenant_id }})"
+
+      # Pricing quotes drop to zero
+      - alert: PricingQuotesDropWarning
+        expr: sum by (exported_job, tenant_id) (increase(pricing_quotes_total[15m])) == 0
+        for: 0m
+        labels:
+          severity: warning
+          kpi: pricing_quotes_total
+        annotations:
+          summary: "Pricing quotes dropped to zero for 15m"
+          description: "No pricing quotes in the last 15 minutes for {{ $labels.exported_job }} (tenant={{ $labels.tenant_id }})"
+
+      - alert: PricingQuotesDropCritical
+        expr: sum by (exported_job, tenant_id) (increase(pricing_quotes_total[30m])) == 0
+        for: 0m
+        labels:
+          severity: critical
+          kpi: pricing_quotes_total
+        annotations:
+          summary: "Pricing quotes dropped to zero for 30m"
+          description: "No pricing quotes in the last 30 minutes for {{ $labels.exported_job }} (tenant={{ $labels.tenant_id }})"
+

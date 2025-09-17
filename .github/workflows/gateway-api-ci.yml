@@ -1,0 +1,22 @@
+name: gateway-api CI
+on:
+  push: { paths: [ 'services/gateway-api/**' ] }
+  pull_request: { paths: [ 'services/gateway-api/**' ] }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm ci
+        working-directory: services/gateway-api
+      - run: npm run lint && npm run build
+        working-directory: services/gateway-api
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: services/gateway-api
+          push: false
+          tags: gateway-api:ci
+

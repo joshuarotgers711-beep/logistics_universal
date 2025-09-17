@@ -1,0 +1,6 @@
+# Local/CI generated certificates and secrets
+ops/tls/out/
+ops/secrets/
+.artifacts/
+node_modules/
+

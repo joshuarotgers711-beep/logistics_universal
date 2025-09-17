@@ -1,0 +1,67 @@
+groups:
+  - name: service-health
+    interval: 30s
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          (sum by (service_name) (increase(http_server_requests_total{http_status_code=~"5.."}[5m]))
+           /
+           clamp_min(sum by (service_name) (increase(http_server_requests_total[5m])), 1)) > 0.02
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High 5xx error rate (>2%) for {{ $labels.service_name }}"
+          description: |
+            Error rate over last 5m exceeds 2%.
+            Value: {{ $value | printf "%.2f" }}
+
+      - alert: CriticalHighErrorRate
+        expr: |
+          (sum by (service_name) (increase(http_server_requests_total{http_status_code=~"5.."}[5m]))
+           /
+           clamp_min(sum by (service_name) (increase(http_server_requests_total[5m])), 1)) > 0.10
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical 5xx error rate (>10%) for {{ $labels.service_name }}"
+          description: |
+            Error rate over last 5m exceeds 10%.
+            Value: {{ $value | printf "%.2f" }}
+
+      - alert: HighLatencyP99
+        expr: |
+          histogram_quantile(0.99,
+            sum by (service_name, le) (rate(http_server_duration_milliseconds_bucket[5m]))
+          ) > 500
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High P99 latency (>500ms) for {{ $labels.service_name }}"
+          description: |
+            P99 http.server latency over 5m window is above 500ms.
+            Value: {{ $value | printf "%.0fms" }}
+
+      - alert: DependencyErrors
+        expr: |
+          sum by (service_name) (increase(http_client_requests_total{http_status_code=~"5.."}[5m])) > 5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Dependency errors > 5 in 5m for {{ $labels.service_name }}"
+          description: |
+            Downstream dependency is returning 5xx.
+
+      - alert: NoServerMetrics
+        expr: |
+          sum by (service_name) (increase(http_server_requests_total[10m])) == 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No http.server metrics from {{ $labels.service_name }}"
+          description: |
+            No http.server metrics seen in last 10m (possible exporter/collector issue).

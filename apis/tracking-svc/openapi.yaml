@@ -1,0 +1,120 @@
+openapi: 3.0.3
+info:
+  title: Tracking Service API
+  version: 1.0.0
+  description: Tracking events ingestion, GPS telemetry, ETA, geofencing.
+servers:
+  - url: https://tracking.example.com
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        code: { type: string }
+        message: { type: string }
+    PickupEvent:
+      type: object
+      required: [shipmentId, timestamp, gps]
+      properties:
+        shipmentId: { type: string, format: uuid }
+        timestamp: { type: string, format: date-time }
+        gps:
+          type: object
+          required: [lat, lon]
+          properties:
+            lat: { type: number }
+            lon: { type: number }
+            accuracyM: { type: number }
+        signature: { type: string }
+    TransitEvent:
+      type: object
+      required: [shipmentId, timestamp, hubCode]
+      properties:
+        shipmentId: { type: string, format: uuid }
+        timestamp: { type: string, format: date-time }
+        hubCode: { type: string }
+        notes: { type: string }
+    DeliveryEvent:
+      type: object
+      required: [shipmentId, timestamp, gps, outcome]
+      properties:
+        shipmentId: { type: string, format: uuid }
+        timestamp: { type: string, format: date-time }
+        gps:
+          type: object
+          required: [lat, lon]
+          properties:
+            lat: { type: number }
+            lon: { type: number }
+        outcome: { type: string, enum: [DELIVERED, FAILED] }
+        photo: { type: string }
+        signature: { type: string }
+        failureReason: { type: string }
+    TrackingResponse:
+      type: object
+      properties:
+        trackingNumber: { type: string }
+        status: { type: string }
+        eta: { type: string, format: date-time }
+        events:
+          type: array
+          items:
+            type: object
+            properties:
+              type: { type: string }
+              ts: { type: string, format: date-time }
+              hub: { type: string }
+paths:
+  /v1/events/pickup:
+    post:
+      summary: Ingest pickup event
+      x-roles: [DRIVER, MANAGER]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PickupEvent' }
+      responses:
+        '202': { description: Accepted }
+  /v1/events/transit:
+    post:
+      summary: Ingest hub transit event
+      x-roles: [MANAGER]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TransitEvent' }
+      responses:
+        '202': { description: Accepted }
+  /v1/events/deliver:
+    post:
+      summary: Ingest delivery event
+      x-roles: [DRIVER, MANAGER]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeliveryEvent' }
+      responses:
+        '202': { description: Accepted }
+  /v1/track/{trackingNumber}:
+    get:
+      summary: Get tracking details
+      security: []
+      parameters:
+        - in: path
+          name: trackingNumber
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/TrackingResponse' } } } }
+        '404': { description: Not Found }
+

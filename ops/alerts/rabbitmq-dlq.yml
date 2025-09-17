@@ -1,0 +1,24 @@
+groups:
+  - name: rabbitmq-dlq
+    rules:
+      - alert: RabbitMQDLQMessagesAccumulatingPerQueue
+        expr: rabbitmq_queue_messages_ready{queue=~"(shipments|labels|pricing|tracking)\\.dlq"} > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Messages accumulating in DLQ {{ $labels.queue }}"
+          description: "Queue {{ $labels.queue }} has messages ready for >5m"
+          runbook: "https://runbooks.local/queues/dlq"
+
+      - alert: RabbitMQDLQNoConsumersPerQueue
+        expr: rabbitmq_queue_consumers{queue=~"(shipments|labels|pricing|tracking)\\.dlq"} == 0
+          and rabbitmq_queue_messages_ready{queue=~"(shipments|labels|pricing|tracking)\\.dlq"} > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "DLQ {{ $labels.queue }} has no consumers and backlog present"
+          description: "Queue {{ $labels.queue }} shows messages ready but zero consumers for >5m"
+          runbook: "https://runbooks.local/queues/dlq"
+

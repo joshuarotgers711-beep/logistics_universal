@@ -1,0 +1,19 @@
+replicaCount: 2
+image:
+  repository: pricing-svc
+  tag: latest
+  pullPolicy: IfNotPresent
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+service:
+  type: ClusterIP
+  port: 80
+env:
+  PORT: "8083"
+  REDIS_URL: "redis://redis:6379/0"
+

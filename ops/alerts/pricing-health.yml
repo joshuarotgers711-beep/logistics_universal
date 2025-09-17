@@ -1,0 +1,24 @@
+groups:
+  - name: pricing-health
+    rules:
+      - alert: PricingDBHealthCheckFailures
+        expr: increase(pricing_health_check_total{component="db",status="unhealthy"}[1m]) >= 3
+        for: 0m
+        labels:
+          severity: warning
+          service: pricing-svc
+        annotations:
+          summary: "Pricing DB deep health failing consecutively"
+          description: "Detected >=3 unhealthy DB deep health checks in the last minute."
+          runbook: "https://runbooks.local/pricing/deep-health"
+      - alert: PricingRedisHealthCheckFailures
+        expr: increase(pricing_health_check_total{component="redis",status="unhealthy"}[1m]) >= 3
+        for: 0m
+        labels:
+          severity: warning
+          service: pricing-svc
+        annotations:
+          summary: "Pricing Redis deep health failing consecutively"
+          description: "Detected >=3 unhealthy Redis deep health checks in the last minute."
+          runbook: "https://runbooks.local/pricing/deep-health"
+

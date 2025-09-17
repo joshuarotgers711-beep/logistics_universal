@@ -1,0 +1,403 @@
+openapi: 3.0.3
+info:
+  title: Gateway API
+  version: 1.0.0
+  description: Public API gateway exposing core shipment lifecycle and auth.
+servers:
+  - url: https://api.example.com
+    description: Production
+  - url: https://staging-api.example.com
+    description: Staging
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string, example: VALIDATION_ERROR }
+        message: { type: string, example: Invalid request }
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field: { type: string }
+              issue: { type: string }
+    Address:
+      type: object
+      required: [name, line1, city, state, postalCode, country]
+      properties:
+        name: { type: string }
+        line1: { type: string, maxLength: 128 }
+        line2: { type: string, maxLength: 128 }
+        city: { type: string }
+        state: { type: string, minLength: 2, maxLength: 64 }
+        postalCode: { type: string, maxLength: 16 }
+        country: { type: string, minLength: 2, maxLength: 2, example: US }
+    Package:
+      type: object
+      required: [weightKg, lengthCm, widthCm, heightCm]
+      properties:
+        weightKg: { type: number, minimum: 0.01 }
+        lengthCm: { type: number, minimum: 1 }
+        widthCm: { type: number, minimum: 1 }
+        heightCm: { type: number, minimum: 1 }
+        declaredValue: { type: number, minimum: 0 }
+        commodityType: { type: string, example: general }
+        hazmat: { type: boolean, default: false }
+    Shipment:
+      type: object
+      required: [id, trackingNumber, status]
+      properties:
+        id: { type: string, format: uuid }
+        trackingNumber: { type: string }
+        status: { type: string, enum: [CREATED, READY_FOR_PICKUP, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, EXCEPTION] }
+        serviceLevel: { type: string, enum: [GROUND, TWO_DAY, OVERNIGHT, SAME_DAY] }
+        shipperId: { type: string }
+        from: { $ref: '#/components/schemas/Address' }
+        to: { $ref: '#/components/schemas/Address' }
+        packages:
+          type: array
+          items: { $ref: '#/components/schemas/Package' }
+        createdAt: { type: string, format: date-time }
+    ShipmentCreateRequest:
+      type: object
+      required: [serviceLevel, from, to, packages]
+      properties:
+        serviceLevel: { type: string, enum: [GROUND, TWO_DAY, OVERNIGHT, SAME_DAY] }
+        from: { $ref: '#/components/schemas/Address' }
+        to: { $ref: '#/components/schemas/Address' }
+        packages:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/Package' }
+      example:
+        serviceLevel: TWO_DAY
+        from: { name: Sender, line1: 1 Main St, city: Austin, state: TX, postalCode: 78701, country: US }
+        to: { name: Receiver, line1: 99 Market, city: San Francisco, state: CA, postalCode: 94103, country: US }
+        packages: [{ weightKg: 2.5, lengthCm: 30, widthCm: 20, heightCm: 10 }]
+    RateQuoteResponse:
+      type: object
+      required: [currency, total]
+      properties:
+        currency: { type: string, example: USD }
+        base: { type: number }
+        surcharges:
+          type: array
+          items:
+            type: object
+            properties:
+              type: { type: string }
+              amount: { type: number }
+        total: { type: number }
+      example:
+        currency: USD
+        base: 12.50
+        surcharges: [{ type: fuel, amount: 1.25 }]
+        total: 13.75
+    LabelResponse:
+      type: object
+      required: [labelId, format, url]
+      properties:
+        labelId: { type: string, format: uuid }
+        format: { type: string, enum: [PDF, PNG, ZPL] }
+        url: { type: string, format: uri }
+        checksum: { type: string }
+      example:
+        labelId: 11111111-2222-3333-4444-555555555555
+        format: PDF
+        url: https://cdn.example.com/labels/1111.pdf
+    PickupEventRequest:
+      type: object
+      required: [timestamp, gps, scanned]
+      properties:
+        timestamp: { type: string, format: date-time }
+        gps:
+          type: object
+          required: [lat, lon]
+          properties:
+            lat: { type: number, minimum: -90, maximum: 90 }
+            lon: { type: number, minimum: -180, maximum: 180 }
+            accuracyM: { type: number }
+        scanned: { type: boolean }
+        signature: { type: string, description: Base64 image }
+      example:
+        timestamp: 2025-01-01T12:00:00Z
+        gps: { lat: 30.2672, lon: -97.7431, accuracyM: 10 }
+        scanned: true
+    TransitEventRequest:
+      type: object
+      required: [timestamp, hubCode]
+      properties:
+        timestamp: { type: string, format: date-time }
+        hubCode: { type: string }
+        notes: { type: string }
+      example:
+        timestamp: 2025-01-01T14:00:00Z
+        hubCode: AUS1
+    DeliveryEventRequest:
+      type: object
+      required: [timestamp, gps, outcome]
+      properties:
+        timestamp: { type: string, format: date-time }
+        gps:
+          type: object
+          required: [lat, lon]
+          properties:
+            lat: { type: number }
+            lon: { type: number }
+        outcome: { type: string, enum: [DELIVERED, FAILED] }
+        photo: { type: string, description: Base64 image }
+        signature: { type: string, description: Base64 image }
+        failureReason: { type: string }
+      example:
+        timestamp: 2025-01-01T16:30:00Z
+        gps: { lat: 37.7749, lon: -122.4194 }
+        outcome: DELIVERED
+        photo: iVBORw0...
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+        mfaCode: { type: string, minLength: 6, maxLength: 6 }
+      example:
+        email: driver@example.com
+        password: secretPw!
+    LoginResponse:
+      type: object
+      required: [accessToken]
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        mfaRequired: { type: boolean }
+      example:
+        accessToken: eyJhbGciOi...
+        refreshToken: eyJhbGciOi...
+        mfaRequired: false
+paths:
+  /v1/auth/login:
+    post:
+      summary: Login and obtain tokens
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoginResponse' }
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /v1/auth/refresh:
+    post:
+      summary: Exchange refresh token for new access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoginResponse' }
+        '401': { description: Unauthorized }
+  /v1/auth/mfa/verify:
+    post:
+      summary: Verify TOTP code after login challenge
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code]
+              properties:
+                email: { type: string, format: email }
+                code: { type: string, minLength: 6, maxLength: 6 }
+      responses:
+        '200': { description: Verified, tokens issued, content: { application/json: { schema: { $ref: '#/components/schemas/LoginResponse' } } } }
+        '400': { description: Bad Request }
+  /v1/shipments:
+    post:
+      summary: Create a shipment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ShipmentCreateRequest' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Shipment' }
+        '400': { description: Validation error, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /v1/shipments/{id}:
+    get:
+      summary: Get a shipment
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Shipment' } } } }
+        '404': { description: Not Found }
+    patch:
+      summary: Update shipment metadata (pre-pickup)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                serviceLevel: { type: string }
+                to: { $ref: '#/components/schemas/Address' }
+      responses:
+        '200': { description: OK }
+        '400': { description: Validation error }
+  /v1/shipments/{id}/rate:
+    post:
+      summary: Calculate rate for a shipment
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/RateQuoteResponse' } } } }
+        '404': { description: Not Found }
+  /v1/shipments/{id}/label:
+    post:
+      summary: Generate a shipping label for a shipment
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                format: { type: string, enum: [PDF, PNG, ZPL], default: PDF }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/LabelResponse' } } } }
+  /v1/shipments/{id}/events/pickup:
+    post:
+      summary: Record pickup event
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PickupEventRequest' }
+      responses:
+        '202': { description: Accepted }
+  /v1/shipments/{id}/events/transit:
+    post:
+      summary: Record transit hub scan
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TransitEventRequest' }
+      responses:
+        '202': { description: Accepted }
+  /v1/shipments/{id}/events/deliver:
+    post:
+      summary: Record delivery event with proof
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeliveryEventRequest' }
+      responses:
+        '202': { description: Accepted }
+  /v1/track/{trackingNumber}:
+    get:
+      summary: Public tracking endpoint
+      security: []
+      parameters:
+        - in: path
+          name: trackingNumber
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trackingNumber: { type: string }
+                  status: { type: string }
+                  eta: { type: string, format: date-time }
+                  events:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        type: { type: string }
+                        ts: { type: string, format: date-time }
+                        hub: { type: string }
+        '404': { description: Not Found }
+  /v1/labels/{labelId}:
+    get:
+      summary: Get label metadata
+      parameters:
+        - in: path
+          name: labelId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/LabelResponse' } } } }
+        '404': { description: Not Found }
+

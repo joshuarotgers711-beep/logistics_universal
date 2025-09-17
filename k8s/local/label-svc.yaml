@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: label-svc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: label-svc
+  template:
+    metadata:
+      labels:
+        app: label-svc
+    spec:
+      containers:
+        - name: label-svc
+          image: label-svc:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8084
+          env:
+            - name: PORT
+              value: "8084"
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8084
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: label-svc
+spec:
+  type: ClusterIP
+  selector:
+    app: label-svc
+  ports:
+    - port: 80
+      targetPort: 8084
+

@@ -1,0 +1,19 @@
+modules:
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      preferred_ip_protocol: ip4
+      tls_config:
+        insecure_skip_verify: false
+
+  http_2xx_mtls:
+    prober: http
+    timeout: 5s
+    http:
+      preferred_ip_protocol: ip4
+      tls_config:
+        ca_file: /certs/ca.crt
+        cert_file: /certs/gateway-client.crt
+        key_file: /certs/gateway-client.key
+        insecure_skip_verify: false

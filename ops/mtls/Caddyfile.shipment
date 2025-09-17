@@ -1,0 +1,15 @@
+{
+  auto_https off
+  admin off
+}
+
+:8443 {
+  tls /certs/shipment-svc.crt /certs/shipment-svc.key {
+    client_auth {
+      mode require_and_verify
+      trusted_ca_cert_file /certs/ca.crt
+    }
+  }
+  reverse_proxy shipment-svc:8082
+}
+

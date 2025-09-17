@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: identity-svc
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels: { app: identity-svc }
+  template:
+    metadata:
+      labels: { app: identity-svc }
+    spec:
+      containers:
+        - name: identity-svc
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8081
+          env:
+            - name: PORT
+              value: {{ .Values.env.PORT | quote }}
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: identity-svc-secrets
+                  key: jwtSecret
+          readinessProbe:
+            httpGet: { path: /ready, port: 8081 }
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /health, port: 8081 }
+            initialDelaySeconds: 3
+            periodSeconds: 10
+

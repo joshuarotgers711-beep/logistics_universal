@@ -1,0 +1,34 @@
+groups:
+  - name: route-slos-test
+    interval: 15s
+    rules:
+      - alert: RouteHighErrorRateTest
+        expr: |
+          (sum by (exported_job, http_route) (rate(http_server_requests_total{http_status_code=~"5.."}[2m]))
+           /
+           clamp_min(sum by (exported_job, http_route) (rate(http_server_requests_total[2m])), 1)) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+          test: "true"
+        annotations:
+          summary: "[TEST] High 5xx error rate (>5%) for {{ $labels.exported_job }} {{ $labels.http_route }}"
+          description: |
+            [TEST] Route {{ $labels.http_route }} in service {{ $labels.exported_job }} has 5xx error rate >5% over last 2m.
+            Value: {{ $value | printf "%.2f" }}
+
+      - alert: RouteHighLatencyP99Test
+        expr: |
+          histogram_quantile(0.99,
+            sum by (exported_job, http_route, le) (rate(http_server_duration_milliseconds_bucket[2m]))
+          ) > 400
+        for: 2m
+        labels:
+          severity: warning
+          test: "true"
+        annotations:
+          summary: "[TEST] High P99 latency (>400ms) for {{ $labels.exported_job }} {{ $labels.http_route }}"
+          description: |
+            [TEST] P99 http.server latency over 2m is above 400ms for route {{ $labels.http_route }} in service {{ $labels.exported_job }}.
+            Value: {{ $value | printf "%.0fms" }}
+

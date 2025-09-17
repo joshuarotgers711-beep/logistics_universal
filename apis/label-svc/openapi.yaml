@@ -1,0 +1,59 @@
+openapi: 3.0.3
+info:
+  title: Label Service API
+  version: 1.0.0
+  description: Generate shipping labels (PDF, PNG, ZPL) with barcodes/QR codes.
+servers:
+  - url: https://label.example.com
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        code: { type: string }
+        message: { type: string }
+    LabelCreateRequest:
+      type: object
+      required: [shipmentId]
+      properties:
+        shipmentId: { type: string, format: uuid }
+        format: { type: string, enum: [PDF, PNG, ZPL], default: PDF }
+    Label:
+      type: object
+      required: [id, format, url]
+      properties:
+        id: { type: string, format: uuid }
+        format: { type: string }
+        url: { type: string, format: uri }
+        checksum: { type: string }
+paths:
+  /v1/labels:
+    post:
+      summary: Generate a label for a shipment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LabelCreateRequest' }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Label' } } } }
+        '404': { description: Shipment not found }
+  /v1/labels/{id}:
+    get:
+      summary: Get label metadata
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Label' } } } }
+        '404': { description: Not Found }
+

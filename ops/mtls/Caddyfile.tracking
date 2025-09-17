@@ -1,0 +1,15 @@
+{
+  auto_https off
+  admin off
+}
+
+:8443 {
+  tls /certs/tracking-svc.crt /certs/tracking-svc.key {
+    client_auth {
+      mode require_and_verify
+      trusted_ca_cert_file /certs/ca.crt
+    }
+  }
+  reverse_proxy tracking-svc:8085
+}
+

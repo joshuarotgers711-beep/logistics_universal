@@ -1,0 +1,40 @@
+{
+  "title": "Pricing Deep Health",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "DB unhealthy (last 5m)",
+      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 4},
+      "targets": [
+        {"datasource": {"type": "prometheus", "uid": "prometheus"},
+         "expr": "sum(increase(pricing_health_check_total{component=\"db\",status=\"unhealthy\"}[5m]))"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Redis unhealthy (last 5m)",
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 4},
+      "targets": [
+        {"datasource": {"type": "prometheus", "uid": "prometheus"},
+         "expr": "sum(increase(pricing_health_check_total{component=\"redis\",status=\"unhealthy\"}[5m]))"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Health check latency (ms) by component (avg)",
+      "gridPos": {"x": 0, "y": 4, "w": 24, "h": 8},
+      "targets": [
+        {"datasource": {"type": "prometheus", "uid": "prometheus"},
+         "expr": "sum by (component) (rate(pricing_health_check_latency_ms_sum[5m])) / sum by (component) (rate(pricing_health_check_latency_ms_count[5m]))"
+        }
+      ]
+    }
+  ],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "schemaVersion": 39,
+  "version": 1
+}
+

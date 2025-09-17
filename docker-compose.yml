@@ -1,0 +1,307 @@
+services:
+  postgres:
+    image: timescale/timescaledb:latest-pg14
+    container_name: lmp-postgres
+    command: ["postgres","-c","shared_preload_libraries=timescaledb,pg_stat_statements"]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-lmp}
+    ports: ["5432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./ops/postgres-init:/docker-entrypoint-initdb.d:ro
+  redis:
+    image: redis:7-alpine
+    container_name: lmp-redis
+    ports: ["6379:6379"]
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: lmp-rabbitmq
+    ports: ["5672:5672", "15672:15672"]
+
+  rabbitmq-exporter:
+    image: kbudde/rabbitmq-exporter:v1.0.0-RC7
+    container_name: lmp-rabbitmq-exporter
+    environment:
+      RABBIT_URL: ${RABBIT_MGMT_URL:-http://rabbitmq:15672}
+      RABBIT_USER: ${RABBIT_USER:-guest}
+      RABBIT_PASSWORD: ${RABBIT_PASSWORD:-guest}
+      PUBLISH_PORT: "9419"
+    ports: ["9419:9419"]
+    depends_on: [rabbitmq]
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.101.0
+    container_name: lmp-otel-collector
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./ops/otelcol.yaml:/etc/otelcol/config.yaml:ro
+    ports: ["4317:4317", "8889:8889"]
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    container_name: lmp-jaeger
+    ports: ["16686:16686"]
+
+  gateway-api:
+    build: ./services/gateway-api
+    env_file: [./services/gateway-api/.env.example]
+    environment:
+      # Explicitly set JWT secrets to align verification with identity-svc
+      JWT_SECRET: ${JWT_SECRET:-devsecret}
+      INTERNAL_JWT_SECRET: ${INTERNAL_JWT_SECRET:-devsecret}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: gateway-api
+      OTEL_TRACES_SAMPLER: parentbased_traceidratio
+      OTEL_TRACES_SAMPLER_ARG: "0.1"
+      OTEL_BSP_MAX_QUEUE_SIZE: "2048"
+      OTEL_BSP_MAX_EXPORT_BATCH_SIZE: "512"
+      OTEL_BSP_SCHEDULE_DELAY: "5000"
+      OTEL_BSP_EXPORT_TIMEOUT: "10000"
+      OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT: "128"
+      OTEL_SPAN_EVENT_COUNT_LIMIT: "128"
+      # Demo alert exercise configuration (pass-through from env)
+      DEMO_ALERTS: ${DEMO_ALERTS:-false}
+      DEMO_ALERTS_TOKEN: ${DEMO_ALERTS_TOKEN:-}
+      DEMO_RPS_LIMIT: ${DEMO_RPS_LIMIT:-10}
+      # mTLS outbound from gateway (disabled by default)
+      ENABLE_MTLS: ${ENABLE_MTLS:-false}
+      GATEWAY_MTLS_CERT_FILE: /run/mtls/gateway-client.crt
+      GATEWAY_MTLS_KEY_FILE: /run/mtls/gateway-client.key
+      GATEWAY_MTLS_CA_FILE: /run/mtls/ca.crt
+    volumes:
+      - ./ops/tls/out:/run/mtls:ro
+    ports: ["8086:8080"]
+    depends_on: [identity-svc, shipment-svc, pricing-svc, label-svc, tracking-svc, otel-collector, jaeger]
+  identity-svc:
+    build: ./services/identity-svc
+    env_file: [./services/identity-svc/.env.example]
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: identity-svc
+      OTEL_TRACES_SAMPLER: parentbased_traceidratio
+      OTEL_TRACES_SAMPLER_ARG: "0.1"
+      OTEL_BSP_MAX_QUEUE_SIZE: "2048"
+      OTEL_BSP_MAX_EXPORT_BATCH_SIZE: "512"
+      OTEL_BSP_SCHEDULE_DELAY: "5000"
+      OTEL_BSP_EXPORT_TIMEOUT: "10000"
+      OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT: "128"
+      OTEL_SPAN_EVENT_COUNT_LIMIT: "128"
+      ENABLE_PPROF: "true"
+      ENABLE_PYROSCOPE: "true"
+      PYROSCOPE_SERVER: "http://pyroscope:4040"
+    ports: ["8081:8081"]
+    depends_on: [postgres, redis, otel-collector]
+  shipment-svc:
+    build: ./services/shipment-svc
+    env_file: [./services/shipment-svc/.env.example]
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: shipment-svc
+      OTEL_TRACES_SAMPLER: parentbased_traceidratio
+      OTEL_TRACES_SAMPLER_ARG: "0.1"
+      OTEL_BSP_MAX_QUEUE_SIZE: "2048"
+      OTEL_BSP_MAX_EXPORT_BATCH_SIZE: "512"
+      OTEL_BSP_SCHEDULE_DELAY: "5000"
+      OTEL_BSP_EXPORT_TIMEOUT: "10000"
+      OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT: "128"
+      OTEL_SPAN_EVENT_COUNT_LIMIT: "128"
+      SCHEMA_VERSION: "1"
+      ENABLE_PPROF: "true"
+      ENABLE_PYROSCOPE: "true"
+      PYROSCOPE_SERVER: "http://pyroscope:4040"
+    ports: ["8082:8082"]
+    depends_on: [postgres, rabbitmq, otel-collector]
+  pricing-svc:
+    build: ./services/pricing-svc
+    env_file: [./services/pricing-svc/.env.example]
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: pricing-svc
+      OTEL_TRACES_SAMPLER: parentbased_traceidratio
+      OTEL_TRACES_SAMPLER_ARG: "0.1"
+      OTEL_BSP_MAX_QUEUE_SIZE: "2048"
+      OTEL_BSP_MAX_EXPORT_BATCH_SIZE: "512"
+      OTEL_BSP_SCHEDULE_DELAY: "5000"
+      OTEL_BSP_EXPORT_TIMEOUT: "10000"
+      OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT: "128"
+      OTEL_SPAN_EVENT_COUNT_LIMIT: "128"
+      DATABASE_URL: ${PRICING_DATABASE_URL:-postgres://postgres:postgres@postgres:5432/lmp}
+    ports: ["8083:8083"]
+    depends_on: [redis, otel-collector]
+  label-svc:
+    build: ./services/label-svc
+    env_file: [./services/label-svc/.env.example]
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: label-svc
+      OTEL_TRACES_SAMPLER: parentbased_traceidratio
+      OTEL_TRACES_SAMPLER_ARG: "0.1"
+      OTEL_BSP_MAX_QUEUE_SIZE: "2048"
+      OTEL_BSP_MAX_EXPORT_BATCH_SIZE: "512"
+      OTEL_BSP_SCHEDULE_DELAY: "5000"
+      OTEL_BSP_EXPORT_TIMEOUT: "10000"
+      OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT: "128"
+      OTEL_SPAN_EVENT_COUNT_LIMIT: "128"
+    ports: ["8084:8084"]
+    depends_on: [otel-collector]
+  tracking-svc:
+    build: ./services/tracking-svc
+    env_file: [./services/tracking-svc/.env.example]
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: tracking-svc
+      OTEL_TRACES_SAMPLER: parentbased_traceidratio
+      OTEL_TRACES_SAMPLER_ARG: "0.1"
+      OTEL_BSP_MAX_QUEUE_SIZE: "2048"
+      OTEL_BSP_MAX_EXPORT_BATCH_SIZE: "512"
+      OTEL_BSP_SCHEDULE_DELAY: "5000"
+      OTEL_BSP_EXPORT_TIMEOUT: "10000"
+      OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT: "128"
+      OTEL_SPAN_EVENT_COUNT_LIMIT: "128"
+      ENABLE_PPROF: "true"
+      ENABLE_PYROSCOPE: "true"
+      PYROSCOPE_SERVER: "http://pyroscope:4040"
+    ports: ["8085:8085"]
+    depends_on: [postgres, otel-collector]
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: lmp-prometheus
+    volumes:
+      - ./ops/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./ops/alerts:/etc/prometheus/rules:ro
+    ports: ["9090:9090"]
+    depends_on: [otel-collector, alertmanager]
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: lmp-alertmanager
+    volumes:
+      - ./ops/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports: ["9093:9093"]
+
+  grafana:
+    image: grafana/grafana:10.2.3
+    container_name: lmp-grafana
+    ports: ["3000:3000"]
+    depends_on: [prometheus, loki]
+    volumes:
+      - ./ops/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./ops/grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+
+
+  pyroscope:
+    image: grafana/pyroscope:1.7.2
+    container_name: lmp-pyroscope
+    ports: ["4040:4040"]
+
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: lmp-loki
+    command: ["-config.file=/etc/loki/config.yml"]
+    ports: ["3100:3100"]
+    volumes:
+      - ./ops/loki-config.yml:/etc/loki/config.yml:ro
+
+  node-exporter:
+    image: prom/node-exporter:v1.6.1
+    container_name: lmp-node-exporter
+    command: ["--path.rootfs=/host"]
+    pid: host
+    ports: ["9100:9100"]
+    volumes:
+      - /:/host:ro,rslave
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.2
+    container_name: lmp-cadvisor
+    ports: ["8080:8080"]
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+  dlqctl:
+    build: ./tools/dlqctl
+    container_name: lmp-dlqctl
+    profiles: ["tools"]
+    environment:
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: dlqctl
+      DLQCTL_METRICS_PORT: "9109"
+    depends_on: [rabbitmq, otel-collector]
+
+  k6:
+    image: grafana/k6:0.47.0
+    container_name: lmp-k6
+    profiles: ["perf"]
+    volumes:
+      - ./tests/perf/k6:/scripts:ro
+      - ./.artifacts:/out
+    working_dir: /scripts
+    entrypoint: ["k6"]
+    depends_on: [gateway-api]
+
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: lmp-promtail
+    command: ["-config.file=/etc/promtail/config.yml"]
+    volumes:
+      - ./ops/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on: [loki]
+  identity-svc-proxy:
+    image: caddy:2.7
+    container_name: lmp-identity-svc-proxy
+    volumes:
+      - ./ops/mtls/Caddyfile.identity:/etc/caddy/Caddyfile:ro
+      - ./ops/tls/out:/certs:ro
+    depends_on: [identity-svc]
+
+  shipment-svc-proxy:
+    image: caddy:2.7
+    container_name: lmp-shipment-svc-proxy
+    volumes:
+      - ./ops/mtls/Caddyfile.shipment:/etc/caddy/Caddyfile:ro
+      - ./ops/tls/out:/certs:ro
+    depends_on: [shipment-svc]
+
+  pricing-svc-proxy:
+    image: caddy:2.7
+    container_name: lmp-pricing-svc-proxy
+    volumes:
+      - ./ops/mtls/Caddyfile.pricing:/etc/caddy/Caddyfile:ro
+      - ./ops/tls/out:/certs:ro
+    depends_on: [pricing-svc]
+
+  label-svc-proxy:
+    image: caddy:2.7
+    container_name: lmp-label-svc-proxy
+    volumes:
+      - ./ops/mtls/Caddyfile.label:/etc/caddy/Caddyfile:ro
+      - ./ops/tls/out:/certs:ro
+    depends_on: [label-svc]
+
+  tracking-svc-proxy:
+    image: caddy:2.7
+    container_name: lmp-tracking-svc-proxy
+    volumes:
+      - ./ops/mtls/Caddyfile.tracking:/etc/caddy/Caddyfile:ro
+      - ./ops/tls/out:/certs:ro
+    depends_on: [tracking-svc]
+
+  blackbox:
+    image: prom/blackbox-exporter:latest
+    container_name: lmp-blackbox
+    volumes:
+      - ./ops/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+      - ./ops/tls/out:/certs:ro
+
+
+
+volumes:
+  pgdata:
+

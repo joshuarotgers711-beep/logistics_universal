@@ -1,0 +1,14 @@
+groups:
+  - name: shipment-idempotency
+    rules:
+      - alert: ShipmentIdempotencyReplaySpike
+        expr: sum(rate(shipment_idempotency_replays_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: shipment-svc
+        annotations:
+          summary: "Spike in shipment idempotency replays"
+          description: "Replay rate over the last 5m exceeds threshold; may indicate client retry storms or duplicate submissions."
+          runbook: "https://runbooks.local/shipments/idempotency"
+

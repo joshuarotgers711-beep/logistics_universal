@@ -1,0 +1,20 @@
+name: tracking-svc CI
+on:
+  push: { paths: [ 'services/tracking-svc/**' ] }
+  pull_request: { paths: [ 'services/tracking-svc/**' ] }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.22' }
+      - run: go build ./...
+        working-directory: services/tracking-svc
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: services/tracking-svc
+          push: false
+          tags: tracking-svc:ci
+

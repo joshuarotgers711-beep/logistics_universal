@@ -1,0 +1,40 @@
+{
+  "title": "Business KPI Funnel (Quotes → Labels → Shipments)",
+  "templating": {
+    "list": [
+      { "name": "tenant_id", "type": "query", "datasource": {"type": "prometheus", "uid": "prometheus"}, "refresh": 2,
+        "query": "label_values(shipments_created_total, tenant_id)", "includeAll": true, "multi": true }
+    ]
+  },
+  "panels": [
+    { "type": "stat", "title": "Quotes r/s (5m)", "gridPos": {"x":0, "y":0, "w":8, "h":4},
+      "fieldConfig": {"defaults": {"unit":"ops"}},
+      "targets": [{"expr":"sum(rate(pricing_quotes_total{tenant_id=~\"$tenant_id\"}[5m]))", "instant": true}] },
+    { "type": "stat", "title": "Labels r/s (5m)", "gridPos": {"x":8, "y":0, "w":8, "h":4},
+      "fieldConfig": {"defaults": {"unit":"ops"}},
+      "targets": [{"expr":"sum(rate(labels_generated_total{tenant_id=~\"$tenant_id\"}[5m]))", "instant": true}] },
+    { "type": "stat", "title": "Shipments r/s (5m)", "gridPos": {"x":16, "y":0, "w":8, "h":4},
+      "fieldConfig": {"defaults": {"unit":"ops"}},
+      "targets": [{"expr":"sum(rate(shipments_created_total{tenant_id=~\"$tenant_id\"}[5m]))", "instant": true}] },
+
+    { "type": "timeseries", "title": "Conversion: Labels / Quotes (by tenant)", "gridPos": {"x":0, "y":4, "w":24, "h":8},
+      "targets": [
+        {"expr": "(sum by (tenant_id) (rate(labels_generated_total{tenant_id=~\"$tenant_id\"}[5m]))) / clamp_min(sum by (tenant_id) (rate(pricing_quotes_total{tenant_id=~\"$tenant_id\"}[5m])), 1e-9)", "legendFormat": "{{tenant_id}}"}
+      ]
+    },
+    { "type": "timeseries", "title": "Conversion: Shipments / Labels (by tenant)", "gridPos": {"x":0, "y":12, "w":24, "h":8},
+      "targets": [
+        {"expr": "(sum by (tenant_id) (rate(shipments_created_total{tenant_id=~\"$tenant_id\"}[5m]))) / clamp_min(sum by (tenant_id) (rate(labels_generated_total{tenant_id=~\"$tenant_id\"}[5m])), 1e-9)", "legendFormat": "{{tenant_id}}"}
+      ]
+    },
+    { "type": "timeseries", "title": "Drop-off: 1 - (Labels/Quotes)", "gridPos": {"x":0, "y":20, "w":24, "h":8},
+      "targets": [
+        {"expr": "1 - ((sum by (tenant_id) (rate(labels_generated_total{tenant_id=~\"$tenant_id\"}[5m]))) / clamp_min(sum by (tenant_id) (rate(pricing_quotes_total{tenant_id=~\"$tenant_id\"}[5m])), 1e-9))", "legendFormat": "{{tenant_id}}"}
+      ]
+    }
+  ],
+  "time": {"from": "now-6h", "to": "now"},
+  "schemaVersion": 39,
+  "version": 1
+}
+

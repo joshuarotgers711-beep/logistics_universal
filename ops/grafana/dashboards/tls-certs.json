@@ -1,0 +1,21 @@
+{
+  "title": "TLS Certificates",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Certificate expiry (days)",
+      "gridPos": {"x": 0, "y": 0, "w": 24, "h": 8},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "(probe_ssl_earliest_cert_expiry - time()) / 86400",
+          "legendFormat": "{{instance}}"
+        }
+      ]
+    }
+  ],
+  "time": {"from": "now-7d", "to": "now"},
+  "schemaVersion": 39,
+  "version": 1
+}
+

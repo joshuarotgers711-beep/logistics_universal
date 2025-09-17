@@ -1,0 +1,33 @@
+groups:
+  - name: kpi-funnel
+    rules:
+      # Conversion: Labels / Quotes too low
+      - alert: KPIFunnelLabelsToQuotesLow
+        expr: |
+          (sum by (tenant_id) (rate(labels_generated_total[15m])))
+          /
+          clamp_min(sum by (tenant_id) (rate(pricing_quotes_total[15m])), 1e-9)
+          < 0.2
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low conversion Labels/Quotes for tenant {{ $labels.tenant_id }}"
+          description: "Labels to Quotes conversion < 20% over 15m"
+          runbook: "https://runbooks.local/kpi/funnel"
+
+      # Conversion: Shipments / Labels too low
+      - alert: KPIFunnelShipmentsToLabelsLow
+        expr: |
+          (sum by (tenant_id) (rate(shipments_created_total[15m])))
+          /
+          clamp_min(sum by (tenant_id) (rate(labels_generated_total[15m])), 1e-9)
+          < 0.5
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low conversion Shipments/Labels for tenant {{ $labels.tenant_id }}"
+          description: "Shipments to Labels conversion < 50% over 15m"
+          runbook: "https://runbooks.local/kpi/funnel"
+

@@ -1,0 +1,31 @@
+{
+  "title": "Infra USE & Service RED",
+  "templating": {"list": []},
+  "panels": [
+    {"type":"row","title":"Node USE"},
+    {"type":"timeseries","title":"Node CPU Usage (%)","gridPos":{"x":0,"y":1,"w":12,"h":6},
+     "targets":[{"datasource":{"type":"prometheus","uid":"prometheus"},
+                  "expr":"100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m]))*100)"}]},
+    {"type":"timeseries","title":"Node Memory Available (%)","gridPos":{"x":12,"y":1,"w":12,"h":6},
+     "targets":[{"datasource":{"type":"prometheus","uid":"prometheus"},
+                  "expr":"(avg(node_memory_MemAvailable_bytes)/avg(node_memory_MemTotal_bytes))*100"}]},
+    {"type":"timeseries","title":"Node FS Usage (%)","gridPos":{"x":0,"y":7,"w":12,"h":6},
+     "targets":[{"datasource":{"type":"prometheus","uid":"prometheus"},
+                  "expr":"100 * (1 - avg(node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay\"})/avg(node_filesystem_size_bytes{fstype!~\"tmpfs|overlay\"}))"}]},
+
+    {"type":"row","title":"Service RED"},
+    {"type":"timeseries","title":"Requests (r/s) by service","gridPos":{"x":0,"y":13,"w":24,"h":6},
+     "targets":[{"datasource":{"type":"prometheus","uid":"prometheus"},
+                  "expr":"sum by (service_name) (rate(http_server_requests_total[5m]))"}]},
+    {"type":"timeseries","title":"Errors (r/s) by service","gridPos":{"x":0,"y":19,"w":12,"h":6},
+     "targets":[{"datasource":{"type":"prometheus","uid":"prometheus"},
+                  "expr":"sum by (service_name) (rate(http_server_requests_total{http_status_code=~\"5..\"}[5m]))"}]},
+    {"type":"timeseries","title":"P99 latency (ms) by route","gridPos":{"x":12,"y":19,"w":12,"h":6},
+     "targets":[{"datasource":{"type":"prometheus","uid":"prometheus"},
+                  "expr":"histogram_quantile(0.99, sum by (http_route, le) (rate(http_server_duration_milliseconds_bucket[5m])))"}]}
+  ],
+  "time": {"from":"now-6h","to":"now"},
+  "schemaVersion": 39,
+  "version": 1
+}
+

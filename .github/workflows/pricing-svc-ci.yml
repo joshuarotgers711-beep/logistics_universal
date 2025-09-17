@@ -1,0 +1,21 @@
+name: pricing-svc CI
+on:
+  push: { paths: [ 'services/pricing-svc/**' ] }
+  pull_request: { paths: [ 'services/pricing-svc/**' ] }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - run: pip install -r services/pricing-svc/requirements.txt
+      - run: python -m pyflakes app || true
+        working-directory: services/pricing-svc
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: services/pricing-svc
+          push: false
+          tags: pricing-svc:ci
+

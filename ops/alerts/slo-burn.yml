@@ -1,0 +1,57 @@
+groups:
+  - name: route-slo-burn
+    interval: 30s
+    rules:
+      # Multi-window composite for error rate
+      - alert: RouteSLOErrorBudgetBurnWarning
+        expr: |
+          (
+            sum by (exported_job, http_route) (rate(http_server_requests_total{http_status_code=~"5.."}[5m]))
+              /
+            clamp_min(sum by (exported_job, http_route) (rate(http_server_requests_total[5m])), 1)
+          ) > 0.05
+          and
+          (
+            sum by (exported_job, http_route) (rate(http_server_requests_total{http_status_code=~"5.."}[1h]))
+              /
+            clamp_min(sum by (exported_job, http_route) (rate(http_server_requests_total[1h])), 1)
+          ) > 0.02
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "[Burn] Route error budget burn (warn) {{ $labels.exported_job }} {{ $labels.http_route }}"
+          description: "5m error rate >5% AND 1h error rate >2%"
+
+      - alert: RouteSLOErrorBudgetBurnCritical
+        expr: |
+          (
+            sum by (exported_job, http_route) (rate(http_server_requests_total{http_status_code=~"5.."}[5m]))
+              /
+            clamp_min(sum by (exported_job, http_route) (rate(http_server_requests_total[5m])), 1)
+          ) > 0.10
+          and
+          (
+            sum by (exported_job, http_route) (rate(http_server_requests_total{http_status_code=~"5.."}[1h]))
+              /
+            clamp_min(sum by (exported_job, http_route) (rate(http_server_requests_total[1h])), 1)
+          ) > 0.04
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "[Burn] Route error budget burn (crit) {{ $labels.exported_job }} {{ $labels.http_route }}"
+          description: "5m error rate >10% AND 1h error rate >4%"
+
+      # Multi-window composite for latency
+      - alert: RouteSLOLatencyBurnWarning
+        expr: |
+          histogram_quantile(0.99, sum by (exported_job, http_route, le) (rate(http_server_duration_milliseconds_bucket[5m]))) > 600
+          and
+          histogram_quantile(0.99, sum by (exported_job, http_route, le) (rate(http_server_duration_milliseconds_bucket[1h]))) > 500
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "[Burn] Route P99 latency elevated (warn) {{ $labels.exported_job }} {{ $labels.http_route }}"
+          description: "P99 > 600ms (5m) and > 500ms (1h)"

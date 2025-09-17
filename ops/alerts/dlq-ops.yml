@@ -1,0 +1,14 @@
+groups:
+  - name: dlq-ops
+    interval: 30s
+    rules:
+      - alert: DLQOpsHighQuarantineRate
+        expr: sum(rate(dlqctl_quarantined_total[10m])) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High DLQ quarantine rate"
+          description: ">1 quarantined messages/min over 10 minutes"
+          runbook: "https://runbooks.local/queues/dlq"
+

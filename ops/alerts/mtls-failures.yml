@@ -1,0 +1,64 @@
+groups:
+  - name: mtls-failures
+    rules:
+      # Spike in gateway outbound client errors (could include TLS handshake/auth failures)
+      - alert: MTLSGatewayClientErrorsSpike
+        expr: sum(rate(http_client_errors_total[5m])) by () > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Gateway outbound client errors detected"
+          description: |
+            The gateway is experiencing outbound HTTP client errors to backends, which may include
+            TLS handshake or certificate authentication failures. Investigate gateway and proxy logs.
+
+      # Spike in server errors on proxies or gateway
+      - alert: MTLSServerErrorsSpike
+        expr: sum(rate(http_server_errors_total[5m])) by () > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Server error spike on proxies/gateway"
+          description: |
+            Elevated HTTP server error rate observed over 5m. Check Caddy proxies and gateway for TLS/auth issues.
+
+      # Error budget style ratio specific to server-side errors
+      - alert: MTLSHighErrorRatio
+        expr: ( sum(rate(http_server_requests_total{exported_job="gateway-api", http_status_code=~"5.."}[5m])) / clamp_min(sum(rate(http_server_requests_total{exported_job="gateway-api"}[5m])), 1e-9) ) > 0.1
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High HTTP server error ratio (gateway mTLS path)"
+          description: |
+            Gateway HTTP 5xx ratio exceeded 10% over the last 10 minutes. This often indicates mTLS handshake or
+            certificate authentication failures, or backend outages. Check gateway and proxy logs and certificate validity.
+
+
+      # Test-mode variant for CI/local validation (scoped to tenant_id="ci", shorter holding time)
+      - alert: MTLSHighErrorRatioTestMode
+        expr: ( sum(rate(http_server_requests_total{exported_job="gateway-api", tenant_id="ci", http_status_code=~"5.."}[2m])) / clamp_min(sum(rate(http_server_requests_total{exported_job="gateway-api", tenant_id="ci"}[2m])), 1e-9) ) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+          scope: test
+        annotations:
+          summary: "[TEST] High HTTP server error ratio (gateway, tenant=ci)"
+          description: |
+            Test-mode alert for CI/local validation using tenant_id="ci" to isolate from production. Fires when
+            gateway HTTP 5xx ratio exceeds 10% for 2 minutes. Safe to enable alongside production rule since it
+            only considers synthetic CI traffic labeled tenant_id=ci.
+
+      # Certificate expiry safety (duplicate of tls.yml but at different threshold)
+      - alert: TLSCertificateExpirySoonWarning
+        expr: (probe_ssl_earliest_cert_expiry - time()) < 7*24*3600
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "TLS certificate expiring within 7 days"
+          description: |
+            Earliest certificate expiry in less than 7 days. Rotate certificates before production impact.
+

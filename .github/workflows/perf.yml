@@ -1,0 +1,83 @@
+name: Performance (nightly)
+
+on:
+  schedule:
+    - cron: "0 3 * * *" # nightly UTC
+  workflow_dispatch: {}
+
+jobs:
+  perf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Start stack
+        env:
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          INTERNAL_JWT_SECRET: ${{ secrets.INTERNAL_JWT_SECRET }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        run: |
+          docker compose up -d --build postgres redis rabbitmq otel-collector jaeger prometheus alertmanager loki promtail grafana gateway-api identity-svc shipment-svc pricing-svc label-svc tracking-svc pyroscope
+          # wait basic health
+          sleep 10
+
+      - name: Print containers
+        run: docker compose ps
+
+      - name: Wait gateway readiness
+        run: |
+          set -e
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8086/healthz || true)
+            if [ "$code" = "200" ]; then echo ready; exit 0; fi
+            echo waiting...; sleep 5
+          done
+          echo gateway not ready; exit 1
+
+      - name: Pyroscope health check
+        run: |
+          set -e
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:4040/healthz || true)
+            if [ "$code" = "200" ]; then echo pyroscope-ok; exit 0; fi
+            code2=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:4040/readyz || true)
+            if [ "$code2" = "200" ]; then echo pyroscope-ok; exit 0; fi
+            echo waiting pyroscope...; sleep 2
+          done
+          echo pyroscope not ready; exit 1
+
+
+      - name: Prepare artifact dirs
+        run: mkdir -p .artifacts/k6 .artifacts/pprof .artifacts/db
+
+      - name: Run k6 baseline (6m)
+        run: |
+          docker compose run --rm --profile perf -e GW_URL=http://gateway-api:8080 -e VUS=20 -e DURATION=6m k6 run /scripts/gateway_funnel_baseline.js --summary-export /out/k6/baseline.json
+
+      - name: Capture pprof snapshots
+        run: bash scripts/perf/capture_pprof.sh .artifacts/pprof
+
+      - name: Collect pg_stat_statements
+        run: |
+          docker compose exec -T postgres psql -U postgres -d lmp -c "CREATE EXTENSION IF NOT EXISTS pg_stat_statements;" || true
+          docker compose exec -T postgres psql -U postgres -d lmp -f /docker-entrypoint-initdb.d/001_pg_stat_statements.sql || true
+          docker compose exec -T postgres psql -U postgres -d lmp -f - > .artifacts/db/pg_stat_top.sql <<'SQL'
+          \t on
+          \a on
+          \f ","
+          SELECT queryid,calls,total_time,mean_time,rows,replace(replace(query, E'\n',' '),',',';') as query
+          FROM pg_stat_statements ORDER BY total_time DESC LIMIT 50;
+          SQL
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-artifacts
+          path: .artifacts
+

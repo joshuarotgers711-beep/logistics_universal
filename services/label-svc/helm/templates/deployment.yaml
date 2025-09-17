@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: label-svc
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels: { app: label-svc }
+  template:
+    metadata:
+      labels: { app: label-svc }
+    spec:
+      containers:
+        - name: label-svc
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8084
+          env:
+            - name: PORT
+              value: {{ .Values.env.PORT | quote }}
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: label-svc-secrets
+                  key: jwtSecret
+          readinessProbe:
+            httpGet: { path: /ready, port: 8084 }
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /health, port: 8084 }
+            initialDelaySeconds: 3
+            periodSeconds: 10
+

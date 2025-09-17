@@ -1,0 +1,27 @@
+groups:
+  - name: kpi-funnel-burn
+    interval: 30s
+    rules:
+      - alert: KPIFunnelLabelsToQuotesBurnWarning
+        expr: |
+          (sum by (tenant_id) (rate(labels_generated_total[5m])))/(clamp_min(sum by (tenant_id) (rate(pricing_quotes_total[5m])),1)) < 0.20
+          and
+          (sum by (tenant_id) (rate(labels_generated_total[1h])))/(clamp_min(sum by (tenant_id) (rate(pricing_quotes_total[1h])),1)) < 0.25
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "[Burn] Low Labels/Quotes conversion (warn) tenant={{ $labels.tenant_id }}"
+          description: "5m < 20% AND 1h < 25%"
+
+      - alert: KPIFunnelShipmentsToLabelsBurnWarning
+        expr: |
+          (sum by (tenant_id) (rate(shipments_created_total[5m])))/(clamp_min(sum by (tenant_id) (rate(labels_generated_total[5m])),1)) < 0.50
+          and
+          (sum by (tenant_id) (rate(shipments_created_total[1h])))/(clamp_min(sum by (tenant_id) (rate(labels_generated_total[1h])),1)) < 0.60
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "[Burn] Low Shipments/Labels conversion (warn) tenant={{ $labels.tenant_id }}"
+          description: "5m < 50% AND 1h < 60%"

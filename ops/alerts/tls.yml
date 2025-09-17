@@ -1,0 +1,20 @@
+groups:
+  - name: tls-expiry
+    rules:
+      - alert: TLSCertificateExpiringSoon
+        expr: (probe_ssl_earliest_cert_expiry - time()) < 14*24*3600
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "TLS certificate for {{ $labels.instance }} expires soon"
+          description: "Earliest certificate expiry in less than 14 days."
+      - alert: TLSCertificateExpiringVerySoon
+        expr: (probe_ssl_earliest_cert_expiry - time()) < 3*24*3600
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "TLS certificate for {{ $labels.instance }} expires very soon"
+          description: "Earliest certificate expiry in less than 3 days."
+

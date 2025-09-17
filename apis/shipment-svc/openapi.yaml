@@ -1,0 +1,135 @@
+openapi: 3.0.3
+info:
+  title: Shipment Service API
+  version: 1.0.0
+  description: Shipment lifecycle management, audit trail.
+servers:
+  - url: https://shipment.example.com
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        code: { type: string }
+        message: { type: string }
+    Address:
+      type: object
+      required: [name, line1, city, state, postalCode, country]
+      properties:
+        name: { type: string }
+        line1: { type: string }
+        line2: { type: string }
+        city: { type: string }
+        state: { type: string }
+        postalCode: { type: string }
+        country: { type: string }
+    Package:
+      type: object
+      required: [weightKg, lengthCm, widthCm, heightCm]
+      properties:
+        weightKg: { type: number, minimum: 0.01 }
+        lengthCm: { type: number }
+        widthCm: { type: number }
+        heightCm: { type: number }
+        declaredValue: { type: number, minimum: 0 }
+        commodityType: { type: string }
+        hazmat: { type: boolean }
+    Shipment:
+      type: object
+      required: [id, status]
+      properties:
+        id: { type: string, format: uuid }
+        trackingNumber: { type: string }
+        status: { type: string, enum: [CREATED, READY_FOR_PICKUP, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, EXCEPTION] }
+        serviceLevel: { type: string, enum: [GROUND, TWO_DAY, OVERNIGHT, SAME_DAY] }
+        shipperId: { type: string }
+        from: { $ref: '#/components/schemas/Address' }
+        to: { $ref: '#/components/schemas/Address' }
+        packages:
+          type: array
+          items: { $ref: '#/components/schemas/Package' }
+        createdAt: { type: string, format: date-time }
+    ShipmentCreateRequest:
+      type: object
+      required: [serviceLevel, from, to, packages]
+      properties:
+        serviceLevel: { type: string, enum: [GROUND, TWO_DAY, OVERNIGHT, SAME_DAY] }
+        from: { $ref: '#/components/schemas/Address' }
+        to: { $ref: '#/components/schemas/Address' }
+        packages:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/Package' }
+    UpdateShipmentRequest:
+      type: object
+      properties:
+        serviceLevel: { type: string }
+        to: { $ref: '#/components/schemas/Address' }
+paths:
+  /v1/shipments:
+    post:
+      summary: Create shipment
+      x-roles: [SHIPPER, MANAGER, ADMIN]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ShipmentCreateRequest' }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Shipment' } } } }
+        '400': { description: Validation error }
+  /v1/shipments/{id}:
+    get:
+      summary: Get shipment by id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Shipment' } } } }
+        '404': { description: Not Found }
+    patch:
+      summary: Update shipment (if not picked up)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateShipmentRequest' }
+      responses:
+        '200': { description: OK }
+        '400': { description: Validation error }
+  /v1/shipments/{id}/status:
+    post:
+      summary: Transition status (internal use via saga)
+      x-internal: true
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to]
+              properties:
+                to: { type: string }
+                reason: { type: string }
+      responses:
+        '202': { description: Accepted }
+

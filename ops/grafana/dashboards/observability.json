@@ -1,0 +1,83 @@
+{
+  "title": "Service Observability",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Request Throughput (req/s)",
+      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+      "targets": [
+        {"datasource": {"type": "prometheus", "uid": "prometheus"},
+         "expr": "sum by (service_name) (rate(http_server_requests[5m]))"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Average Request Duration (ms)",
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+      "targets": [
+        {"datasource": {"type": "prometheus", "uid": "prometheus"},
+         "expr": "sum by (service_name) (http_server_duration_sum) / sum by (service_name) (http_server_duration_count)"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Error Rate (% of requests)",
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+      "targets": [
+        {"datasource": {"type": "prometheus", "uid": "prometheus"},
+         "expr": "100 * (sum by (service_name) (rate(http_server_errors[5m])) / sum by (service_name) (rate(http_server_requests[5m])))"}
+      ]
+    },
+    {
+      "type": "logs",
+      "title": "Service Logs (Loki)",
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+      "targets": [
+        {"datasource": {"type": "loki", "uid": "loki"},
+         "expr": "{container=~\"newfolder2-.*\"}"}
+      ]
+    },
+
+    {"type":"row","title":"Business KPI Funnel","gridPos":{"x":0,"y":16,"w":24,"h":1}},
+    {"type":"stat","title":"Quotes r/s (5m)","gridPos":{"x":0,"y":17,"w":8,"h":4},
+     "targets":[{"datasource":{"type":"prometheus","uid":"prometheus"},
+                  "expr":"sum(rate(pricing_quotes_total{tenant_id=~\"$tenant_id\"}[5m]))","instant":true}]},
+    {"type":"stat","title":"Labels r/s (5m)","gridPos":{"x":8,"y":17,"w":8,"h":4},
+     "targets":[{"datasource":{"type":"prometheus","uid":"prometheus"},
+                  "expr":"sum(rate(labels_generated_total{tenant_id=~\"$tenant_id\"}[5m]))","instant":true}]},
+    {"type":"stat","title":"Shipments r/s (5m)","gridPos":{"x":16,"y":17,"w":8,"h":4},
+     "targets":[{"datasource":{"type":"prometheus","uid":"prometheus"},
+                  "expr":"sum(rate(shipments_created_total{tenant_id=~\"$tenant_id\"}[5m]))","instant":true}]},
+    {"type":"timeseries","title":"Conversion: Labels / Quotes (by tenant)","gridPos":{"x":0,"y":21,"w":24,"h":8},
+     "targets":[{"datasource":{"type":"prometheus","uid":"prometheus"},
+                  "expr":"(sum by (tenant_id) (rate(labels_generated_total{tenant_id=~\"$tenant_id\"}[5m])))/clamp_min(sum by (tenant_id) (rate(pricing_quotes_total{tenant_id=~\"$tenant_id\"}[5m])),1e-9)",
+                  "legendFormat":"{{tenant_id}}"}]},
+
+    {"type":"row","title":"RabbitMQ DLQ & Consumers","gridPos":{"x":0,"y":29,"w":24,"h":1}},
+    {"type":"stat","title":"DLQ total messages (ready)","gridPos":{"x":0,"y":30,"w":12,"h":4},
+     "targets":[{"datasource":{"type":"prometheus","uid":"prometheus"},
+                  "expr":"sum(rabbitmq_queue_messages_ready{queue=~\"$dlq_queue\"})","instant":true}]},
+    {"type":"stat","title":"Consumers on DLQs","gridPos":{"x":12,"y":30,"w":12,"h":4},
+     "targets":[{"datasource":{"type":"prometheus","uid":"prometheus"},
+                  "expr":"sum(rabbitmq_queue_consumers{queue=~\"$dlq_queue\"})","instant":true}]},
+    {"type":"table","title":"DLQ per-queue status","gridPos":{"x":0,"y":34,"w":24,"h":10},
+     "targets":[{"datasource":{"type":"prometheus","uid":"prometheus"},
+                  "expr":"rabbitmq_queue_messages_ready{queue=~\"$dlq_queue\"}","legendFormat":"{{queue}}"}]},
+    {"type":"timeseries","title":"DLQ messages ready (rate)","gridPos":{"x":0,"y":44,"w":24,"h":8},
+     "targets":[{"datasource":{"type":"prometheus","uid":"prometheus"},
+                  "expr":"sum by (queue) (rate(rabbitmq_queue_messages_ready{queue=~\"$dlq_queue\"}[5m]))","legendFormat":"{{queue}}"}]}
+  ],
+  "templating": {
+    "list": [
+      {"name":"tenant_id","type":"query","datasource":{"type":"prometheus","uid":"prometheus"},
+       "refresh":2,"query":"label_values(shipments_created_total, tenant_id)","includeAll":true,"multi":true},
+      {"name":"dlq_queue","type":"query","datasource":{"type":"prometheus","uid":"prometheus"},
+       "refresh":2,"query":"label_values(rabbitmq_queue_messages_ready, queue)",
+       "regex":"/(shipments|labels|pricing|tracking)\\.dlq/","includeAll":true,"multi":true}
+    ]
+  },
+  "time": {"from": "now-6h", "to": "now"},
+  "schemaVersion": 39,
+  "version": 1
+}
+

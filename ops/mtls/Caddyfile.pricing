@@ -1,0 +1,15 @@
+{
+  auto_https off
+  admin off
+}
+
+:8443 {
+  tls /certs/pricing-svc.crt /certs/pricing-svc.key {
+    client_auth {
+      mode require_and_verify
+      trusted_ca_cert_file /certs/ca.crt
+    }
+  }
+  reverse_proxy pricing-svc:8083
+}
+

@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shipment-svc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: shipment-svc
+  template:
+    metadata:
+      labels:
+        app: shipment-svc
+    spec:
+      containers:
+        - name: shipment-svc
+          image: shipment-svc:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8082
+          env:
+            - name: PORT
+              value: "8082"
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8082
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shipment-svc
+spec:
+  type: ClusterIP
+  selector:
+    app: shipment-svc
+  ports:
+    - port: 80
+      targetPort: 8082
+

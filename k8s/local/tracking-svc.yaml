@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tracking-svc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tracking-svc
+  template:
+    metadata:
+      labels:
+        app: tracking-svc
+    spec:
+      containers:
+        - name: tracking-svc
+          image: tracking-svc:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8085
+          env:
+            - name: PORT
+              value: "8085"
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8085
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tracking-svc
+spec:
+  type: ClusterIP
+  selector:
+    app: tracking-svc
+  ports:
+    - port: 80
+      targetPort: 8085
+

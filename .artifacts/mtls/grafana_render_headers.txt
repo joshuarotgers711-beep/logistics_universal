@@ -1,0 +1,11 @@
+HTTP/1.1 200 OK
+Accept-Ranges: bytes
+Cache-Control: no-store
+Content-Length: 43837
+Content-Type: image/png
+Last-Modified: Wed, 17 Sep 2025 21:35:07 GMT
+X-Content-Type-Options: nosniff
+X-Frame-Options: deny
+X-Xss-Protection: 1; mode=block
+Date: Wed, 17 Sep 2025 21:35:07 GMT
+

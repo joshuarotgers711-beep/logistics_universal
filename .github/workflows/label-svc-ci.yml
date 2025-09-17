@@ -1,0 +1,22 @@
+name: label-svc CI
+on:
+  push: { paths: [ 'services/label-svc/**' ] }
+  pull_request: { paths: [ 'services/label-svc/**' ] }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm ci
+        working-directory: services/label-svc
+      - run: npm run lint && npm run build
+        working-directory: services/label-svc
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: services/label-svc
+          push: false
+          tags: label-svc:ci
+

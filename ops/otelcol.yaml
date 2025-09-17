@@ -1,0 +1,40 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+
+processors:
+  tail_sampling:
+    decision_wait: 5s
+    num_traces: 10000
+    policies:
+      - name: debug-always
+        type: string_attribute
+        string_attribute:
+          key: debug
+          values: ["true", "1", "yes"]
+      - name: probabilistic-10
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: 10
+  batch:
+
+exporters:
+  otlp:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+  prometheus:
+    endpoint: 0.0.0.0:8889
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [tail_sampling, batch]
+      exporters: [otlp]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus]
+

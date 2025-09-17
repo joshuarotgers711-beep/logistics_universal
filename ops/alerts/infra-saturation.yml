@@ -1,0 +1,60 @@
+groups:
+  - name: infra-saturation
+    interval: 30s
+    rules:
+      - alert: NodeHighCPUUsage
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High node CPU usage (>80%)"
+          description: "Node CPU usage sustained above 80% for 10m"
+
+      - alert: NodeCriticalCPUUsage
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical node CPU usage (>90%)"
+          description: "Node CPU usage sustained above 90% for 10m"
+
+      - alert: NodeLowMemoryAvailable
+        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) < 0.10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low node memory available (<10%)"
+          description: "Node memory available below 10% for 10m"
+
+      - alert: NodeFilesystemAlmostFull
+        expr: (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"})) > 0.90
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Filesystem usage high (>90%)"
+          description: "Node filesystem usage above 90% for 15m"
+
+  - name: container-saturation
+    interval: 30s
+    rules:
+      - alert: ContainerHighCPU
+        expr: sum by (container) (rate(container_cpu_usage_seconds_total[5m])) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container high CPU usage"
+          description: "Container CPU > 0.8 cores for 10m"
+
+      - alert: ContainerHighMemory
+        expr: sum by (container) (container_memory_working_set_bytes) > (512 * 1024 * 1024)
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container high memory usage"
+          description: "Container memory > 512Mi for 10m"

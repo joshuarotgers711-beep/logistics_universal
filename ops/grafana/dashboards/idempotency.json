@@ -1,0 +1,27 @@
+{
+  "title": "Shipments Idempotency",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Idempotency replays rate (by tenant)",
+      "gridPos": {"x": 0, "y": 0, "w": 24, "h": 8},
+      "targets": [
+        {"datasource": {"type": "prometheus", "uid": "prometheus"},
+         "expr": "sum by (tenant_id) (rate(shipment_idempotency_replays_total[5m]))"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Replay ratio = replays / creates (by tenant)",
+      "gridPos": {"x": 0, "y": 8, "w": 24, "h": 8},
+      "targets": [
+        {"datasource": {"type": "prometheus", "uid": "prometheus"},
+         "expr": "(sum by (tenant_id) (rate(shipment_idempotency_replays_total[5m]))) / clamp_min(sum by (tenant_id) (rate(shipments_created_total[5m])), 1e-9)"}
+      ]
+    }
+  ],
+  "time": {"from": "now-6h", "to": "now"},
+  "schemaVersion": 39,
+  "version": 1
+}
+

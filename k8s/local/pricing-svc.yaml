@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pricing-svc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pricing-svc
+  template:
+    metadata:
+      labels:
+        app: pricing-svc
+    spec:
+      containers:
+        - name: pricing-svc
+          image: pricing-svc:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8083
+          env:
+            - name: PORT
+              value: "8083"
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8083
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pricing-svc
+spec:
+  type: ClusterIP
+  selector:
+    app: pricing-svc
+  ports:
+    - port: 80
+      targetPort: 8083
+

@@ -1,0 +1,46 @@
+groups:
+  - name: route-slos
+    interval: 30s
+    rules:
+      - alert: RouteHighErrorRate
+        expr: |
+          (sum by (exported_job, http_route) (rate(http_server_requests_total{http_status_code=~"5.."}[5m]))
+           /
+           clamp_min(sum by (exported_job, http_route) (rate(http_server_requests_total[5m])), 1)) > 0.02
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High 5xx error rate (>2%) for {{ $labels.exported_job }} {{ $labels.http_route }}"
+          description: |
+            Route {{ $labels.http_route }} in service {{ $labels.exported_job }} has 5xx error rate >2% over last 10m.
+            Value: {{ $value | printf "%.2f" }}
+
+      - alert: RouteCriticalHighErrorRate
+        expr: |
+          (sum by (exported_job, http_route) (rate(http_server_requests_total{http_status_code=~"5.."}[5m]))
+           /
+           clamp_min(sum by (exported_job, http_route) (rate(http_server_requests_total[5m])), 1)) > 0.10
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical 5xx error rate (>10%) for {{ $labels.exported_job }} {{ $labels.http_route }}"
+          description: |
+            Route {{ $labels.http_route }} in service {{ $labels.exported_job }} has 5xx error rate >10% over last 10m.
+            Value: {{ $value | printf "%.2f" }}
+
+      - alert: RouteHighLatencyP99
+        expr: |
+          histogram_quantile(0.99,
+            sum by (exported_job, http_route, le) (rate(http_server_duration_milliseconds_bucket[5m]))
+          ) > 500
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High P99 latency (>500ms) for {{ $labels.exported_job }} {{ $labels.http_route }}"
+          description: |
+            P99 http.server latency over 10m is above 500ms for route {{ $labels.http_route }} in service {{ $labels.exported_job }}.
+            Value: {{ $value | printf "%.0fms" }}
+

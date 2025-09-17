@@ -1,0 +1,87 @@
+openapi: 3.0.3
+info:
+  title: Pricing Service API
+  version: 1.0.0
+  description: Rate engine for shipments based on distance, weight, and service level.
+servers:
+  - url: https://pricing.example.com
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        code: { type: string }
+        message: { type: string }
+    Address:
+      type: object
+      required: [line1, city, state, postalCode, country]
+      properties:
+        line1: { type: string }
+        city: { type: string }
+        state: { type: string }
+        postalCode: { type: string }
+        country: { type: string }
+    Package:
+      type: object
+      required: [weightKg, lengthCm, widthCm, heightCm]
+      properties:
+        weightKg: { type: number }
+        lengthCm: { type: number }
+        widthCm: { type: number }
+        heightCm: { type: number }
+    QuoteRequest:
+      type: object
+      required: [serviceLevel, from, to, packages]
+      properties:
+        serviceLevel: { type: string, enum: [GROUND, TWO_DAY, OVERNIGHT, SAME_DAY] }
+        from: { $ref: '#/components/schemas/Address' }
+        to: { $ref: '#/components/schemas/Address' }
+        packages:
+          type: array
+          items: { $ref: '#/components/schemas/Package' }
+    QuoteResponse:
+      type: object
+      required: [currency, base, total]
+      properties:
+        currency: { type: string, example: USD }
+        base: { type: number }
+        distanceKm: { type: number }
+        surcharges:
+          type: array
+          items:
+            type: object
+            properties:
+              type: { type: string }
+              amount: { type: number }
+        total: { type: number }
+paths:
+  /v1/pricing/quote:
+    post:
+      summary: Get a rate quote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/QuoteRequest' }
+            examples:
+              simple:
+                value:
+                  serviceLevel: GROUND
+                  from: { line1: 1 Main, city: Austin, state: TX, postalCode: 78701, country: US }
+                  to: { line1: 99 Market, city: SF, state: CA, postalCode: 94103, country: US }
+                  packages: [{ weightKg: 2.0, lengthCm: 30, widthCm: 20, heightCm: 10 }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuoteResponse' }
+        '400': { description: Validation error }
+

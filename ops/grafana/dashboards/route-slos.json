@@ -1,0 +1,206 @@
+{
+  "title": "Route-level SLOs",
+  "uid": "route-slos",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "10s",
+  "timezone": "browser",
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      },
+      {
+        "name": "Route SLO Alerts",
+        "enable": true,
+        "hide": false,
+        "iconColor": "#E24D42",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "ALERTS{alertstate=\"firing\", alertname=~\"Route(High|Critical).*\", exported_job=\"$service\", http_route=\"$route\"}"
+      }
+    ]
+  },
+
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "label": "Service",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(http_server_requests_total, exported_job)",
+        "includeAll": false,
+        "multi": false
+      },
+      {
+        "name": "route",
+        "label": "Route",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(http_server_requests_total{exported_job=\"$service\"}, http_route)",
+        "includeAll": false,
+        "multi": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Req/s (route)",
+      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "values": false } },
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_requests_total{exported_job=\"$service\", http_route=\"$route\"}[5m]))",
+          "legendFormat": "req/s",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Latency P50/P90/P95/P99 (ms)",
+      "gridPos": { "x": 8, "y": 0, "w": 16, "h": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "ms" } },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(http_server_duration_milliseconds_bucket{exported_job=\"$service\", http_route=\"$route\"}[5m])))",
+          "legendFormat": "P50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.90, sum by (le) (rate(http_server_duration_milliseconds_bucket{exported_job=\"$service\", http_route=\"$route\"}[5m])))",
+          "legendFormat": "P90",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_duration_milliseconds_bucket{exported_job=\"$service\", http_route=\"$route\"}[5m])))",
+          "legendFormat": "P95",
+          "refId": "C"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_duration_milliseconds_bucket{exported_job=\"$service\", http_route=\"$route\"}[5m])))",
+          "legendFormat": "P99",
+          "refId": "D"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Error rate (%)",
+      "gridPos": { "x": 0, "y": 6, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit" } },
+      ,
+      "targets": [
+        {
+          "expr": "100 * (sum(rate(http_server_requests_total{exported_job=\"$service\", http_route=\"$route\", http_status_code=~\"5..\"}[5m])) / clamp_min(sum(rate(http_server_requests_total{exported_job=\"$service\", http_route=\"$route\"}[5m])), 1e-9))",
+          "legendFormat": "error%",
+          "refId": "A"
+        }
+      ]
+
+    },
+    {
+      "type": "stat",
+      "title": "Current Error % (5m)",
+      "gridPos": { "x": 0, "y": 13, "w": 6, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "green", "value": null},
+            {"color": "yellow", "value": 2},
+            {"color": "red", "value": 10}
+          ]}
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "values": false } },
+      "targets": [
+        { "expr": "100 * (sum(rate(http_server_requests_total{exported_job=\"$service\", http_route=\"$route\", http_status_code=~\"5..\"}[5m])) / clamp_min(sum(rate(http_server_requests_total{exported_job=\"$service\", http_route=\"$route\"}[5m])), 1e-9))", "refId": "A", "instant": true }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Current P99 (ms, 5m)",
+      "gridPos": { "x": 6, "y": 13, "w": 6, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "green", "value": null},
+            {"color": "yellow", "value": 500}
+          ]}
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "values": false } },
+      "targets": [
+        { "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_duration_milliseconds_bucket{exported_job=\"$service\", http_route=\"$route\"}[5m])))", "refId": "A", "instant": true }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Firing Route Alerts (count)",
+      "gridPos": { "x": 12, "y": 13, "w": 6, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "green", "value": null},
+            {"color": "red", "value": 0.5}
+          ]}
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "values": false } },
+      "targets": [
+        { "expr": "sum(ALERTS{alertstate=\"firing\", alertname=~\"Route(High|Critical).*\", exported_job=\"$service\", http_route=\"$route\"})", "refId": "A", "instant": true }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Firing alerts",
+      "gridPos": { "x": 0, "y": 18, "w": 16, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "transformations": [ { "id": "labelsToFields" } ],
+      "targets": [
+        { "expr": "ALERTS{alertstate=\"firing\", alertname=~\"Route(High|Critical).*\", exported_job=\"$service\", http_route=\"$route\"}", "refId": "A", "instant": true }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Dependency errors (5xx) by downstream",
+      "gridPos": { "x": 16, "y": 18, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "req/s" } },
+      "targets": [
+        { "expr": "sum by (net_peer_name) (rate(http_client_requests_total{exported_job=\"$service\", http_status_code=~\"5..\"}[5m]))", "legendFormat": "{{net_peer_name}}", "refId": "A" }
+      ]
+    }
+
+    {
+      "type": "timeseries",
+      "title": "Dependency latency P95 (ms) by downstream",
+      "gridPos": { "x": 12, "y": 6, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "ms" } },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (net_peer_name, le) (rate(http_client_duration_milliseconds_bucket{exported_job=\"$service\"}[5m])))",
+          "legendFormat": "{{net_peer_name}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}
+
