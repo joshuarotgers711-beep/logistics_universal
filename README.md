@@ -1,3 +1,13 @@
+[![Gateway API CI](https://github.com/joshuarotgers711-beep/logistics_universal/actions/workflows/gateway-api-ci.yml/badge.svg)](https://github.com/joshuarotgers711-beep/logistics_universal/actions/workflows/gateway-api-ci.yml)
+[![Identity Svc CI](https://github.com/joshuarotgers711-beep/logistics_universal/actions/workflows/identity-svc-ci.yml/badge.svg)](https://github.com/joshuarotgers711-beep/logistics_universal/actions/workflows/identity-svc-ci.yml)
+[![Shipment Svc CI](https://github.com/joshuarotgers711-beep/logistics_universal/actions/workflows/shipment-svc-ci.yml/badge.svg)](https://github.com/joshuarotgers711-beep/logistics_universal/actions/workflows/shipment-svc-ci.yml)
+[![Pricing Svc CI](https://github.com/joshuarotgers711-beep/logistics_universal/actions/workflows/pricing-svc-ci.yml/badge.svg)](https://github.com/joshuarotgers711-beep/logistics_universal/actions/workflows/pricing-svc-ci.yml)
+[![Label Svc CI](https://github.com/joshuarotgers711-beep/logistics_universal/actions/workflows/label-svc-ci.yml/badge.svg)](https://github.com/joshuarotgers711-beep/logistics_universal/actions/workflows/label-svc-ci.yml)
+[![Tracking Svc CI](https://github.com/joshuarotgers711-beep/logistics_universal/actions/workflows/tracking-svc-ci.yml/badge.svg)](https://github.com/joshuarotgers711-beep/logistics_universal/actions/workflows/tracking-svc-ci.yml)
+[![Observability](https://github.com/joshuarotgers711-beep/logistics_universal/actions/workflows/observability.yml/badge.svg)](https://github.com/joshuarotgers711-beep/logistics_universal/actions/workflows/observability.yml)
+[![Perf](https://github.com/joshuarotgers711-beep/logistics_universal/actions/workflows/perf.yml/badge.svg)](https://github.com/joshuarotgers711-beep/logistics_universal/actions/workflows/perf.yml)
+
+
 # Logistics Universal
 
 A modular, open-source logistics management platform with an API gateway, domain microservices (identity, shipment, pricing, label, tracking), and a production-grade observability stack. The platform supports mutual TLS (mTLS) for service-to-service auth, secrets via the `*_FILE` pattern, and a fully local, free/open-source setup.
