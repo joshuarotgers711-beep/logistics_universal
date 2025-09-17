@@ -1,0 +1,17 @@
+# Code owners for review routing
+# Default owner for everything
+*       @joshuarotgers
+
+# Services
+/services/gateway-api/   @joshuarotgers
+/services/identity-svc/  @joshuarotgers
+/services/shipment-svc/  @joshuarotgers
+/services/pricing-svc/   @joshuarotgers
+/services/label-svc/     @joshuarotgers
+/services/tracking-svc/  @joshuarotgers
+
+# Ops & Observability
+/ops/                     @joshuarotgers
+/.github/                 @joshuarotgers
+/docs/                    @joshuarotgers
+

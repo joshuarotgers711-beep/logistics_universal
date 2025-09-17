@@ -1,0 +1,40 @@
+name: mtls-validation
+
+on:
+  workflow_dispatch:
+
+jobs:
+  mtls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker info
+        run: |
+          docker version
+          docker compose version
+
+      - name: Start stack (infra + services)
+        run: |
+          docker compose up -d postgres redis rabbitmq rabbitmq-exporter otel-collector prometheus grafana loki promtail jaeger blackbox
+          docker compose up -d gateway-api identity-svc shipment-svc pricing-svc label-svc tracking-svc \
+            identity-svc-proxy shipment-svc-proxy pricing-svc-proxy label-svc-proxy tracking-svc-proxy
+
+      - name: Warm up
+        run: sleep 40
+
+      - name: Run mTLS validation script
+        run: bash scripts/mtls_validation.sh
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mtls-artifacts
+          path: .artifacts/mtls
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
+
